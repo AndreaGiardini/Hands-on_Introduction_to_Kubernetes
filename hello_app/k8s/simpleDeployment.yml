@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+  labels:
+    app: myapp
+spec:
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+  replicas: 5
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp-container
+        image: @IMAGE@
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: 5000
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 5000

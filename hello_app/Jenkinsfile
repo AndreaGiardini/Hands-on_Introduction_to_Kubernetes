@@ -1,0 +1,79 @@
+def project = 'agiardini'
+def imageTag = "gcr.io/${project}/hello-app:${env.BRANCH_NAME}.${env.BUILD_NUMBER}"
+
+pipeline {
+  agent {
+    kubernetes {
+      label 'hello-app'
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+labels:
+  component: ci
+spec:
+  serviceAccountName: jenkins
+  containers:
+  - name: gcloud
+    image: gcr.io/cloud-builders/gcloud
+    command:
+    - cat
+    tty: true
+  - name: kubectl
+    image: gcr.io/cloud-builders/kubectl
+    command:
+    - cat
+    tty: true
+  - name: python
+    image: python:3.6-alpine
+    command:
+    - cat
+    tty: true
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+"""
+}
+  }
+  stages {
+    stage('Run tests') {
+      steps {
+        container('python') {
+          sh "pip install -r requirements.txt && pip install pytest"
+          sh "pytest -v"
+        }
+      }
+    }
+    stage('Build and push image with Container Builder') {
+      steps {
+        container('gcloud') {
+          sh "PYTHONUNBUFFERED=1 gcloud builds submit -t ${imageTag} ."
+        }
+      }
+    }
+    stage('Deploy Stage') {
+      when { branch 'stage' }
+      steps{
+        container('kubectl') {
+          sh("sed -i 's_@IMAGE@_${imageTag}_g' ./k8s/*.yml")
+          sh("kubectl --namespace=stage apply -f k8s/")
+          sh("kubectl rollout status -f k8s/simpleDeployment.yml --namespace=stage --watch=true")
+          sh("echo http://`kubectl --namespace=stage get ingress/basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`")
+        }
+      }
+    }
+    stage('Deploy Production') {
+      when { branch 'master' }
+      steps{
+        container('kubectl') {
+          sh("sed -i 's_@IMAGE@_${imageTag}_g' ./k8s/*.yml")
+          sh("kubectl --namespace=production apply -f k8s/")
+          sh("kubectl rollout status -f k8s/simpleDeployment.yml --namespace=production --watch=true")
+          sh("echo http://`kubectl --namespace=production get ingress/basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`")
+        }
+      }
+    }
+  }
+}

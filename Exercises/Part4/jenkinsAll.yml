@@ -1,0 +1,395 @@
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stage
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ci
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jenkins
+  namespace: ci
+spec:
+  backend:
+    serviceName: jenkins-ui
+    servicePort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-ui
+  namespace: ci
+  labels:
+    app: jenkins
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  selector:
+    app: jenkins
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-discovery
+  namespace: ci
+  labels:
+    app: jenkins
+spec:
+  type: ClusterIP
+  ports:
+  - name: jnlp
+    port: 50000
+    targetPort: jnlp
+  selector:
+    app: jenkins
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: ci
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: jenkins
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["create","delete","get","list","patch","update","watch"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create","delete","get","list","patch","update","watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get","list","watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jenkins
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ci
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: ci
+data:
+  plugins.txt: |
+    ace-editor:1.1
+    ant:1.9
+    antisamy-markup-formatter:1.5
+    apache-httpcomponents-client-4-api:4.5.5-3.0
+    authentication-tokens:1.3
+    basic-branch-build-strategies:1.1.1
+    bouncycastle-api:2.17
+    branch-api:2.1.2
+    build-timeout:1.19
+    buildtriggerbadge:2.10
+    cloudbees-bitbucket-branch-source:2.4.2
+    cloudbees-folder:6.7
+    command-launcher:1.3
+    compact-columns:1.10
+    config-file-provider:3.5
+    configuration-as-code:1.6
+    configuration-as-code-support:1.6
+    credentials:2.1.18
+    credentials-binding:1.17
+    display-url-api:2.3.0
+    docker-commons:1.13
+    docker-workflow:1.17
+    durable-task:1.29
+    email-ext:2.63
+    external-monitor-job:1.7
+    extra-columns:1.20
+    favorite:2.3.2
+    git:3.9.3
+    git-client:2.7.6
+    github:1.29.4
+    github-api:1.95
+    github-branch-source:2.4.2
+    github-oauth:0.31
+    git-server:1.7
+    google-oauth-plugin:0.7
+    google-source-plugin:0.3
+    greenballs:1.15
+    groovy:2.1
+    handlebars:1.1.1
+    handy-uri-templates-2-api:2.1.6-1.0
+    htmlpublisher:1.18
+    jackson2-api:2.9.8
+    javadoc:1.4
+    jdk-tool:1.2
+    jenkins-design-language:1.11.1
+    jira:3.0.5
+    job-dsl:1.71
+    jquery-detached:1.2.1
+    jsch:0.1.55
+    junit:1.27
+    kubernetes:1.14.5
+    kubernetes-credentials:0.4.0
+    ldap:1.20
+    lockable-resources:2.4
+    mailer:1.23
+    matrix-auth:2.3
+    matrix-project:1.13
+    mercurial:2.5
+    metrics:4.0.2.3
+    momentjs:1.1.1
+    oauth-credentials:0.3
+    pam-auth:1.4
+    permissive-script-security:0.3
+    pipeline-build-step:2.7
+    pipeline-github:2.5
+    pipeline-graph-analysis:1.9
+    pipeline-input-step:2.9
+    pipeline-maven:3.6.7
+    pipeline-milestone-step:1.3.1
+    pipeline-model-api:1.3.4.1
+    pipeline-model-declarative-agent:1.1.1
+    pipeline-model-definition:1.3.4.1
+    pipeline-model-extensions:1.3.4.1
+    pipeline-rest-api:2.10
+    pipeline-stage-step:2.3
+    pipeline-stage-tags-metadata:1.3.4.1
+    pipeline-stage-view:2.10
+    pipeline-utility-steps:2.2.0
+    plain-credentials:1.5
+    prometheus:2.0.0
+    pubsub-light:1.12
+    scm-api:2.3.0
+    script-security:1.53
+    sse-gateway:1.17
+    ssh-agent:1.17
+    ssh-credentials:1.14
+    structs:1.17
+    timestamper:1.9
+    token-macro:2.6
+    variant:1.2
+    view-job-filters:2.1.1
+    windows-slaves:1.4
+    workflow-aggregator:2.6
+    workflow-api:2.33
+    workflow-basic-steps:2.14
+    workflow-cps:2.63
+    workflow-cps-global-lib:2.13
+    workflow-durable-task-step:2.29
+    workflow-job:2.31
+    workflow-multibranch:2.20
+    workflow-scm-step:2.7
+    workflow-step-api:2.19
+    workflow-support:3.2
+
+  kubernetes_specs.yml: |
+    jenkins:
+      clouds:
+        - kubernetes:
+            name: kubernetes
+            namespace: ${NAMESPACE}
+            containerCapStr: 20
+            jenkinsTunnel: jenkins-discovery.ci.svc.cluster.local:50000
+            jenkinsUrl: http://jenkins-ui.ci.svc.cluster.local:8080
+
+  jenkins_config.yml: |
+    jenkins:
+      numExecutors: 1
+      systemMessage: "Jenkins"
+      mode: EXCLUSIVE
+      labelString: "master"
+      #noUsageStatistics: true
+      crumbIssuer:
+        standard:
+          excludeClientIPFromCrumb: true
+      markupFormatter:
+        rawHtml:
+          disableSyntaxHighlighting: true
+      agentProtocols: ['JNLP4-connect']
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "admin"
+              password: "1234"
+      authorizationStrategy: loggedInUsersCanDoAnything
+      slaveAgentPort: 50000
+      remotingSecurity:
+        enabled: true
+    security:
+      globalJobDslSecurityConfiguration:
+        useScriptSecurity: false
+      remotingCLI:
+        enabled: false
+    unclassified:
+      extendedemailpublisher:
+        allowUnregisteredEnabled: true
+    credentials:
+      system:
+        domainCredentials:
+          - credentials:
+            - googleRobotMetadata:
+                projectId: agiardini
+    jobs:
+      - script: |
+          multibranchPipelineJob('example') {
+            triggers {
+              periodic(1)
+            }
+            branchSources {
+              git {
+                remote('https://source.developers.google.com/p/agiardini/r/default')
+                credentialsId('source:agiardini')
+              }
+            }
+          }
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jenkins
+  namespace: ci
+  labels:
+    app: jenkins
+spec:
+  serviceName: jenkins
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-plugins
+          image: jenkins/jenkins:2.150.3-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - "/usr/local/bin/install-plugins.sh < /var/jenkins_config/plugins.txt"
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: jenkins-ref
+              mountPath: /usr/share/jenkins/ref
+            - name: jenkins-config
+              mountPath: /var/jenkins_config
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:2.150.3-alpine
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 50000
+              name: jnlp
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: JAVA_OPTS
+              value: |
+                -XX:+UnlockExperimentalVMOptions
+                -XX:+UseCGroupMemoryLimitForHeap
+                -XX:MaxRAMFraction=1
+                -XshowSettings:vm
+                -Dhudson.slaves.NodeProvisioner.initialDelay=0
+                -Dhudson.slaves.NodeProvisioner.MARGIN=50
+                -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+                -Djenkins.install.runSetupWizard=false
+                -Dorg.apache.commons.jelly.tags.fmt.timeZone=Europe/Berlin
+                -Dpermissive-script-security.enabled=true
+                -Dmail.smtp.starttls.enable=true
+                -Dhudson.model.DirectoryBrowserSupport.CSP=""
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_config/
+            - name: SECRETS
+              value: /etc/jenkins_secrets/
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 120
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 5
+          volumeMounts:
+            - name: jenkins-config
+              mountPath: /var/jenkins_config
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: jenkins-ref
+              mountPath: /usr/share/jenkins/ref
+      volumes:
+        - name: jenkins-config
+          configMap:
+            name: jenkins-config
+            items:
+              - key: plugins.txt
+                path: plugins.txt
+              - key: jenkins_config.yml
+                path: jenkins_config.yml
+              - key: kubernetes_specs.yml
+                path: kubernetes_specs.yml
+  volumeClaimTemplates:
+    - metadata:
+        name: jenkins-home
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+    - metadata:
+        name: jenkins-ref
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
