@@ -158,7 +158,7 @@ data:
     handlebars:1.1.1
     handy-uri-templates-2-api:2.1.6-1.0
     htmlpublisher:1.18
-    jackson2-api:2.9.8
+    jackson2-api:2.10.0
     javadoc:1.4
     jdk-tool:1.2
     jenkins-design-language:1.11.1
